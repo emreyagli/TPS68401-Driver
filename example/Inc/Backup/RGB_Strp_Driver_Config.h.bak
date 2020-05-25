@@ -1,0 +1,49 @@
+/**
+	******************
+	*@file				RGB_Strp_Driver_Config.h
+	*@author			Sami Emre Yagli
+	*@created			30.01.2020
+	*@UC					STM32F4xx
+	*@brief				Stripe RGB Led Control with using TPS68401.
+	@verbatim
+	******************
+**/
+
+#ifndef RGB_Strp_Driver_Config
+#define RGB_Strp_Driver_Config
+
+#define  TPS68401_I2C					hi2c1
+
+#define  TPS68401_ADDR_SEL_0	0x64
+#define  TPS68401_ADDR_SEL_1	0x66
+#define  TPS68401_ADDR_SEL_2	0x68
+#define  TPS68401_ADDR_SEL_3	0x6A
+
+#define  TPS68401_EN_PIN			0
+#define  TPS68401_TIMEOUT 		100
+
+#define  TPS68401_Config_Reg  0x6F
+
+#define	 TPS68401_OP_Direct   0x3F
+#define  TPS68401_EN_Direct		0xC0
+
+#define	 TPS68401_OP_Load			0x15
+#define	 TPS68401_EN_Load			0xC0
+
+#define	 TPS68401_OP_Run			0x2A
+#define	 TPS68401_EN_Run			0xE8
+
+#define	 R_Current_Limit			0x0A //restricted current max to 1 mA
+#define	 G_Current_Limit			0x0A
+#define	 B_Current_Limit			0x0A
+
+//#define	 TPS68401_ENABLE_REG	0xC0 //0x40 (Normal). ONLY PROGRAM MEMORY: For load mode; 0x40(Normal), 0xC0(logarithmic). For run mode; 0xE8 (Logarithmic), 0x68 (Normal).
+//#define	 TPS68401_MODE_REG		0x3F //ONLY PROGRAM MEMORY: For load mode; 0x15, For run mode; 0x2A 
+
+
+#if (TPS68401_EN_PIN == 1)
+	#define TPS68401_EN_GPIO		GPIOB
+	#define TPS68401_EN_PIN			GPIO_PIN_13
+#endif
+
+#endif

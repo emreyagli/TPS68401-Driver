@@ -1,0 +1,46 @@
+#include "stdint.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "stdbool.h"
+#include "stm32f4xx_hal.h"
+#include "TPS68401_CONFIG.h"
+
+#define  TPS68401_ADDR_SEL_0	0x64
+#define  TPS68401_ADDR_SEL_1	0x66
+#define  TPS68401_ADDR_SEL_2	0x68
+#define  TPS68401_ADDR_SEL_3	0x6A
+
+
+extern I2C_HandleTypeDef hi2c1;
+
+typedef struct Config{
+	uint8_t hz_pwm; /* 0: 256 Hz  ; 1: 558 */
+	uint8_t power_save; /* 0: Disable  ; 1: Enable */
+	uint8_t cp_mode; /* 00:off  // 01: 1xChargePump  // 10: 1.5xChargePump // 11: automatic */
+	uint8_t r_to_bat; /* 0: Red Channel connected to ChargePump output  ; 1: Red Ch connected to battery supply */ 
+	/* Green and Blue Channels are connected to Charge Pump output */
+	uint8_t pwm_clk_source; 
+}config_reg;
+
+uint8_t addr_select(uint8_t ADDR_SEL);
+void rgb_reset(void);
+void enable_direct(void);
+void enable_load(void);
+void enable_run(void);
+void rgb_config(void);
+void op_run_mode(void);
+void op_load_mode(void);
+void op_direct_mode(void);
+void rgb_direct_init (uint8_t ADDR_SEL);
+void rgb_drive_pwm(uint8_t ADDR_SEL,uint8_t red_pwm, uint8_t green_pwm, uint8_t blue_pwm);
+void hex_drive_pwm(uint8_t ADDR_SEL, char h[7]);
+void rgb_current(uint8_t red_c, uint8_t green_c, uint8_t blue_c);
+
+/*Program memory register functions*/
+void set_pwm(uint8_t mem_addr,uint8_t pwm_val);
+void wait(uint8_t mem_addr,uint16_t time_ms);
+void ramp(uint8_t mem_addr,uint16_t time_ms, uint8_t sign,uint8_t inc_num);
+void branch(uint8_t mem_addr, uint8_t loop_cntr, uint8_t step_number);
+void go_to_start(uint8_t mem_addr);
+void end(uint8_t mem_addr, uint8_t interr, uint8_t def);
+void pm_example(uint8_t ADDR_SEL);

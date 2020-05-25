@@ -1,0 +1,259 @@
+/*
+Author: Sami Emre Yagli
+Date: 16.12.2019
+*/
+
+#include "TPS68401.h"
+#include <math.h>
+
+/******************* Private address defining part *****************************/
+uint8_t  TPS68401_I2C_ADDR;
+uint8_t  TPS68401_ENABLE 			= 0x00;
+uint8_t  TPS68401_OP_MODE 		=	0x01;
+uint8_t  TPS68401_R_PWM				= 0x02;
+uint8_t  TPS68401_G_PWM				=	0x03;
+uint8_t  TPS68401_B_PWM				=	0x04;
+uint8_t  TPS68401_R_CURRENT		= 0x05;
+uint8_t  TPS68401_G_CURRENT 	= 0x06;
+uint8_t  TPS68401_B_CURRENT		= 0x07;
+uint8_t  TPS68401_CON					= 0x08;
+uint8_t  TPS68401_R_PC		 		= 0x09;
+uint8_t  TPS68401_G_PC		 		= 0x0A;
+uint8_t  TPS68401_B_PC		 		= 0x0B;
+uint8_t  TPS68401_STATUS	 		= 0x0C;
+uint8_t  TPS68401_RESET		 		= 0x0D;
+uint8_t  TPS68401_GPO					= 0x0E;
+/*********************** End Of addressing ***********************/
+
+
+/*
+Address selection function for using multiple I2C devices.
+*/
+uint8_t addr_select(uint8_t ADDR_SEL){
+	if(ADDR_SEL == TPS68401_ADDR_SEL_0)
+		TPS68401_I2C_ADDR = TPS68401_ADDR_SEL_0;
+	if(ADDR_SEL == TPS68401_ADDR_SEL_1)
+		TPS68401_I2C_ADDR = TPS68401_ADDR_SEL_1;
+	if(ADDR_SEL == TPS68401_ADDR_SEL_2)
+		TPS68401_I2C_ADDR = TPS68401_ADDR_SEL_2;
+	if(ADDR_SEL == TPS68401_ADDR_SEL_3)
+		TPS68401_I2C_ADDR = TPS68401_ADDR_SEL_3;
+	return TPS68401_I2C_ADDR;
+}
+
+
+/*
+Reset function
+*/
+void rgb_reset(void){
+	uint8_t reset_value = 0xFF; //Reset
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_RESET, 1, &reset_value, 1, 100);
+	reset_value = 0;						//Set again
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_RESET, 1, &reset_value, 1, 100);
+}
+
+/*
+Enabling Direct Mode
+*/
+void enable_direct(void){										
+	uint8_t current_log = 1; 	current_log = current_log << 7;					//Logaritmic current adjustment
+	uint8_t enable_value = 0x40 | current_log;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_ENABLE, 1, &enable_value, 1, 100);
+}
+
+
+/*
+Enabling Load Mode
+*/
+void enable_load(void){
+	uint8_t current_log = 0; 	current_log = current_log << 7;					//Logaritmic current adjustment
+	uint8_t enable_value = 0x40 | current_log;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_ENABLE, 1, &enable_value, 1, 100);
+}
+
+
+/*
+Enabling Run Mode
+*/
+void enable_run(void){															
+	uint8_t current_log = 1; 	current_log = current_log << 7;					//Logaritmic current adjustment
+	uint8_t enable_value = 0x68 | current_log;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_ENABLE, 1, &enable_value, 1, 100);
+}
+
+
+/*
+Configuration Control Register
+*/
+void rgb_config(void){
+	config_reg conf;
+	conf.hz_pwm = 1; 				conf.hz_pwm = conf.hz_pwm << 6; 						//558 Hz.
+	conf.power_save = 1;		conf.power_save = conf.power_save << 5;			//Power Save Mode
+	conf.cp_mode = 1; 			conf.cp_mode = conf.cp_mode << 3; 					//ChargePump 1x Mode
+	conf.r_to_bat = 1; 			conf.r_to_bat = conf.r_to_bat << 2;					//Red Channel connected to ChargePump output.
+	conf.pwm_clk_source=3; 																							//Internal clock is used; clock detection is disabled.
+	uint8_t config_value = conf.cp_mode | conf.hz_pwm | conf.power_save | conf.pwm_clk_source | conf.r_to_bat;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_CON, 1, &config_value, 1, 100);
+}
+
+
+/*
+Operation Mode Functions
+*/
+void op_direct_mode(void){																		//Direct Mode Operation(Controll through PWM Registers)
+	uint8_t op_val = 0x3F;  																					
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_OP_MODE, 1, &op_val, 1, 100); //
+}
+
+void op_load_mode(void){																			//Load Mode (Controll through Program Memory Registers)
+	uint8_t op_val = 0x15;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_OP_MODE, 1, &op_val, 1, 100);
+}
+
+void op_run_mode(void){																				//Run Mode (Controll through Program Memory Registers)
+	uint8_t op_val = 0x2A; 
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_OP_MODE, 1, &op_val, 1, 100);
+}
+
+
+/*
+Initialization function for all direct mode functions to call in main.
+*/
+void rgb_direct_init(uint8_t ADDR_SEL){
+	TPS68401_I2C_ADDR = addr_select(ADDR_SEL);
+	rgb_reset();
+	enable_direct();
+	rgb_config();
+	op_direct_mode();
+}
+
+
+/*
+PWM Control Registers for Direct Mode with RGB Code.
+*/
+void rgb_drive_pwm(uint8_t ADDR_SEL,uint8_t red_pwm, uint8_t green_pwm, uint8_t blue_pwm){
+	ADDR_SEL = addr_select(ADDR_SEL);
+	red_pwm	= 255 - red_pwm;
+	green_pwm = 255 - green_pwm;
+	blue_pwm = 255 - blue_pwm;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_R_PWM, 1, &red_pwm, 1, 100);	
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_G_PWM, 1, &green_pwm, 1, 100);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_B_PWM, 1, &blue_pwm, 1, 100);
+}
+
+/*
+PWM Control Registers for Direct Mode with Hex Code.
+*/
+/*void hex_drive_pwm(uint8_t ADDR_SEL, char h[7]){
+	ADDR_SEL = addr_select(ADDR_SEL);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_R_PWM, 1, &red_pwm, 1, 100);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_G_PWM, 1, &green_pwm, 1, 100);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_B_PWM, 1, &blue_pwm, 1, 100);
+}*/
+
+
+/*
+Current Control Register
+*/
+void rgb_current(uint8_t red_c, uint8_t green_c, uint8_t blue_c){ //default current = (175,175,175) = 17.5mA
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_R_CURRENT, 1, &red_c, 1, 100);	
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_G_CURRENT, 1, &green_c, 1, 100);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, TPS68401_B_CURRENT, 1, &blue_c, 1, 100);
+}
+
+
+/*PROGRAM MEMORY REGISTER FUNCTIONS*/
+
+void set_pwm(uint8_t mem_addr,uint8_t pwm_val){		//Pwm setting for program memory registers.
+	uint8_t pwm_inst = 0x40;
+	pwm_val = 255 - pwm_val;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr, 1, &pwm_inst, 1, 100);	
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr+1, 1, &pwm_val, 1, 100);	
+}
+
+/*Delay Function for Program Memory Register*/
+void wait(uint8_t mem_addr,uint16_t time_ms){ 							//time_ms is 1000ms max.
+	uint8_t step_time = (32767 * time_ms/1000) / (512+1); 		//psc=512 	//step_time = 63;
+	uint8_t wait_val = 1 << 6 | step_time;
+	uint8_t zero = 0;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr, 1, &wait_val, 1, 100);	
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr+1, 1, &zero, 1, 100);	
+}
+
+/*
+Program memory register function.
+Ramp function is used to reach specific pwm value, "inc_num", with decrement or increment the default pwm.
+The passing time with every changing step on pwm is defined with "time_ms"
+If sign=0: increment processing ; sign=1: decrement processing.
+*/
+void ramp(uint8_t mem_addr,uint16_t time_ms, uint8_t sign,uint8_t inc_num){
+	uint8_t step_time = (32768 * time_ms) / (513 * 1000); 	//psc=512 //step_time = 63;
+	uint8_t ramp_inst = 1 << 6 | step_time; 
+	uint8_t ramp_val = sign << 7 | inc_num; //sign=0 : increment to inc_num; sign=1 : decrement from inc_num
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr, 1, &ramp_inst, 1, 100);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr+1, 1, &ramp_val, 1, 100);
+}
+
+/*
+Loop process for program memory register.
+*/
+void branch(uint8_t mem_addr, uint8_t loop_cntr, uint8_t step_number){
+	uint16_t branch_val= (5 << 13) | (loop_cntr << 7) | step_number;
+	uint8_t msb = ((branch_val >> 8) & 0xff);
+	uint8_t lsb = ((branch_val >> 0) & 0xff);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr, 1, &msb, 1, 100);	
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr+1, 1, &lsb, 1, 100);	
+}
+
+
+/*
+Start process for pm register.
+*/
+void go_to_start(uint8_t mem_addr){
+	uint8_t res=0;
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr, 1, &res, 1, 100);	
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr+1, 1, &res, 1, 100);
+}
+
+/*
+Code finishes with the end instruction.
+interr: Interrupt enable/disable
+def: Set Pwm = 0 / Pwm = default
+*/
+void end(uint8_t mem_addr, uint8_t interr, uint8_t def){
+	uint8_t end_val = (6 << 5) | (interr<<4) | (def<<3);
+	HAL_I2C_Mem_Write(&hi2c1, TPS68401_I2C_ADDR, mem_addr, 1, &end_val, 1, 100);	
+}
+void pm_example(uint8_t ADDR_SEL){
+	TPS68401_I2C_ADDR = addr_select(ADDR_SEL);
+	rgb_reset();
+	//HAL_Delay(10);
+	enable_load();
+	//HAL_Delay(5);
+	op_load_mode();
+	/////////////
+	set_pwm(0x10,50);
+	wait(0x12,200);
+	set_pwm(0x14,250);
+	wait(0x16,500);
+	branch(0x18,4,0);
+	end(0x20,1,0);
+	/////////////
+	set_pwm(0x30,250);
+	wait(0x32,200);
+	set_pwm(0x34,5);
+	wait(0x36,500);
+	branch(0x38,5,0);
+	end(0x40,1,0);
+	////////////
+	set_pwm(0x50,250);
+	wait(0x52,200);
+	set_pwm(0x54,5);
+	wait(0x56,500);
+	branch(0x58,6,0);
+	end(0x60,1,0);
+	//////////
+	rgb_config();
+	op_run_mode();
+	enable_run();
+}
